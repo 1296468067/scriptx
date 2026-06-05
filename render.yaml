@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: scriptx
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: starter
+    envVars:
+      - key: AI_API_BASE_URL
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        sync: false
+      - key: FFMPEG_PATH
+        value: ffmpeg
+      - key: FFPROBE_PATH
+        value: ffprobe
+    disk:
+      name: scriptx-data
+      mountPath: /app/data
+      sizeGB: 5
+    healthCheckPath: /
+    autoDeploy: true

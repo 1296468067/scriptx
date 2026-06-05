@@ -32,6 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env*.local
+
+# runtime data
+data/
+uploads/
 
 # vercel
 .vercel
@@ -39,3 +45,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# project misc
+*.code-workspace
+chat-*.md
+原型重设计.html

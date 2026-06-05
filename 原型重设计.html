@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScriptX 原型重设计 — 三版方案对比</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================
+   GLOBAL: Tab bar + layout
+   ===================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  background: #e8ecf1;
+  min-height: 100vh;
+}
+
+/* ---- Tab Switcher ---- */
+.tab-switcher {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; gap: 4px;
+  background: #1a1a2e; padding: 10px 20px;
+  justify-content: center;
+}
+.tab-btn {
+  padding: 8px 28px; border-radius: 20px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55);
+  transition: all 0.2s;
+}
+.tab-btn:hover { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.8); }
+.tab-btn.active { background: #fff; color: #1a1a2e; }
+
+/* ---- Variant containers ---- */
+.variant { display: none; }
+.variant.active { display: block; }
+
+/* ---- State toggle inside each variant ---- */
+.state-toggles {
+  display: flex; gap: 12px; padding: 28px 32px 0;
+  justify-content: center;
+}
+.state-btn {
+  padding: 10px 32px; border-radius: 24px; border: 2px solid #d0d5dd;
+  font-size: 15px; font-weight: 600; cursor: pointer; background: #fff; color: #555;
+  transition: all 0.15s;
+}
+.state-btn:hover { border-color: #999; }
+.state-btn.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+.state-content { display: none; }
+.state-content.active { display: block; }
+
+/* ---- Design token footnote ---- */
+.token-bar {
+  margin: 48px 32px 32px; padding: 18px 24px;
+  border-radius: 12px; background: #fff;
+  display: flex; gap: 28px; flex-wrap: wrap; align-items: center;
+  font-size: 13px;
+}
+.token-bar .tok { display: flex; align-items: center; gap: 6px; }
+.token-bar .swatch { width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; }
+.token-bar .label { color: #888; margin-right: 2px; }
+
+/* =====================================================
+   V1: 品牌活力风
+   ===================================================== */
+.v1 { --bg: #FFFBF5; --card: #fff; --border: #efe8db;
+  --p: #0066FF; --p2: #FF5C39; --p3: #FFB800;
+  --t1: #13132B; --t2: #5C5C7B; --t3: #9D9DB5;
+  --radius: 18px; --shadow: 0 2px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+  --font-display: 'Outfit', -apple-system, 'PingFang SC', sans-serif;
+}
+.v1 body-bg { background: var(--bg); display: block; min-height: 100vh; }
+
+.v1 .navbar {
+  display: flex; align-items: center; height: 56px; padding: 0 24px;
+  background: rgba(255,255,255,0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 46px; z-index: 50;
+}
+.v1 .nav-logo { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--p); letter-spacing: -0.5px; }
+.v1 .nav-logo span { font-size: 11px; color: var(--t3); font-weight: 400; margin-left: 6px; letter-spacing: 0; }
+.v1 .nav-tabs { display: flex; gap: 0; margin-left: 40px; }
+.v1 .nav-tab {
+  padding: 16px 20px; font-size: 14px; font-weight: 500; color: var(--t2);
+  border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+}
+.v1 .nav-tab:hover { color: var(--t1); }
+.v1 .nav-tab.cur { color: var(--p); border-bottom-color: var(--p); font-weight: 600; }
+.v1 .nav-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* V1 Upload */
+.v1 .upload-zone {
+  margin: 48px 32px; padding: 80px 60px; text-align: center;
+  background: var(--card); border-radius: var(--radius);
+  border: 2px dashed var(--border); transition: all 0.2s; cursor: pointer;
+  position: relative; overflow: hidden;
+}
+.v1 .upload-zone::before {
+  content: ''; position: absolute; top: -60px; right: -60px;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,102,255,0.06) 0%, transparent 70%);
+}
+.v1 .upload-zone::after {
+  content: ''; position: absolute; bottom: -40px; left: -40px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,92,57,0.05) 0%, transparent 70%);
+}
+.v1 .upload-zone:hover { border-color: var(--p); background: #fafcff; }
+.v1 .upload-icon {
+  width: 64px; height: 64px; margin: 0 auto 16px; position: relative; z-index: 1;
+  background: linear-gradient(135deg, var(--p), #3399FF); border-radius: 16px;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 28px;
+  box-shadow: 0 8px 24px rgba(0,102,255,0.2);
+}
+.v1 .upload-title { font-size: 18px; font-weight: 700; color: var(--t1); position: relative; z-index: 1; }
+.v1 .upload-hint { font-size: 13px; color: var(--t3); margin-top: 8px; position: relative; z-index: 1; }
+.v1 .upload-btn {
+  display: inline-block; margin-top: 20px; padding: 10px 32px;
+  background: var(--p); color: #fff; border: none; border-radius: 24px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,102,255,0.25);
+  transition: all 0.15s; position: relative; z-index: 1;
+}
+.v1 .upload-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,102,255,0.35); }
+.v1 .upload-features {
+  display: flex; gap: 24px; justify-content: center; margin-top: 24px;
+  position: relative; z-index: 1;
+}
+.v1 .uf-item { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px; }
+.v1 .uf-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.v1 .uf-dot.a { background: var(--p); }
+.v1 .uf-dot.b { background: var(--p2); }
+.v1 .uf-dot.c { background: var(--p3); }
+
+/* V1 Results layout */
+.v1 .results-wrap { margin: 36px 32px; display: flex; gap: 24px; min-height: 650px; }
+.v1 .result-panel {
+  background: var(--card); border-radius: var(--radius);
+  padding: 32px; box-shadow: var(--shadow);
+}
+.v1 .results-wrap > .result-panel:first-child { flex: 1; }
+.v1 .side-panel .result-panel { flex: none; }
+.v1 .rp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.v1 .rp-title { font-size: 17px; font-weight: 700; color: var(--t1); }
+.v1 .rp-badge { font-size: 12px; padding: 4px 12px; border-radius: 20px;
+  background: rgba(0,102,255,0.1); color: var(--p); font-weight: 600; }
+.v1 .shot-card {
+  border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px;
+  transition: all 0.15s;
+}
+.v1 .shot-card:hover { border-color: var(--p); box-shadow: 0 2px 8px rgba(0,102,255,0.06); }
+.v1 .shot-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.v1 .shot-num { width: 28px; height: 28px; border-radius: 50%; background: var(--p);
+  color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.v1 .shot-time { font-size: 13px; color: var(--t3); }
+.v1 .shot-mood { font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 500; }
+.v1 .shot-desc { font-size: 14px; color: var(--t1); line-height: 1.7; margin-bottom: 8px; }
+.v1 .shot-script { font-size: 13px; color: var(--t2); background: #f8f9fb; padding: 10px 14px; border-radius: 8px; }
+.v1 .shot-camera { font-size: 12px; color: var(--t3); margin-top: 8px; }
+
+.v1 .prompt-card {
+  border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px;
+}
+.v1 .prompt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.v1 .prompt-label { font-size: 14px; font-weight: 600; color: var(--t1); }
+.v1 .prompt-scene { font-size: 12px; padding: 3px 10px; border-radius: 10px;
+  background: rgba(255,184,0,0.12); color: #b87a00; font-weight: 500; }
+.v1 .prompt-text { font-size: 13px; color: var(--t1); line-height: 1.8; background: #f8f9fb; padding: 14px 16px; border-radius: 8px; margin-bottom: 10px; }
+.v1 .prompt-img { font-size: 13px; color: #8b6914; line-height: 1.8; background: #fffdf5; padding: 14px 16px; border-radius: 8px; border-left: 3px solid var(--p3); }
+.v1 .prompt-actions { display: flex; gap: 10px; margin-top: 12px; }
+.v1 .btn-sm {
+  padding: 8px 18px; border-radius: 16px; border: 1.5px solid var(--border);
+  font-size: 13px; cursor: pointer; background: #fff; color: var(--t2);
+  transition: all 0.15s;
+}
+.v1 .btn-sm:hover { border-color: var(--p); color: var(--p); }
+.v1 .btn-sm.primary { background: var(--p); color: #fff; border-color: var(--p); }
+.v1 .btn-sm.primary:hover { background: #0052cc; }
+
+.v1 .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.v1 .export-bar {
+  display: flex; gap: 10px; padding: 18px; background: var(--card);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+
+/* ---- Emotion Pills V1 ---- */
+.v1 .emotion-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.v1 .emotion-pill { width: 34px; height: 34px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #333; }
+.v1 .emotion-arrow { color: var(--t3); font-size: 12px; margin: 0 3px; }
+
+/* ---- V1 Token bar ---- */
+.v1 .token-bar { background: var(--card); border: 1px solid var(--border); }
+
+/* =====================================================
+   V2: 极简工具风
+   ===================================================== */
+.v2 { --bg: #F5F5F7; --card: #fff; --border: #E5E5EA;
+  --p: #2D2D2D; --p2: #5B6CF0; --accent: #F2F3FB;
+  --t1: #1D1D1F; --t2: #6E6E73; --t3: #AEAEB2;
+  --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.04);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', sans-serif;
+}
+.v2 body-bg { background: var(--bg); display: block; min-height: 100vh; }
+
+.v2 .navbar {
+  display: flex; align-items: center; height: 48px; padding: 0 24px;
+  background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 46px; z-index: 50;
+}
+.v2 .nav-logo { font-weight: 700; font-size: 17px; color: var(--p); letter-spacing: -0.3px; }
+.v2 .nav-logo span { font-size: 11px; color: var(--t3); font-weight: 400; margin-left: 6px; }
+.v2 .nav-tabs { display: flex; gap: 0; margin-left: 36px; }
+.v2 .nav-tab {
+  padding: 13px 18px; font-size: 13px; font-weight: 500; color: var(--t2);
+  cursor: pointer; transition: color 0.12s; border-bottom: 2px solid transparent;
+}
+.v2 .nav-tab:hover { color: var(--t1); }
+.v2 .nav-tab.cur { color: var(--p); border-bottom-color: var(--p); font-weight: 600; }
+.v2 .nav-actions { margin-left: auto; }
+
+/* V2 Upload */
+.v2 .upload-zone {
+  margin: 48px 32px; padding: 72px 60px; text-align: center;
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border); cursor: pointer; transition: border-color 0.15s;
+}
+.v2 .upload-zone:hover { border-color: var(--p); }
+.v2 .upload-icon {
+  width: 48px; height: 48px; margin: 0 auto 14px;
+  border: 2px solid var(--p); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--p); font-size: 22px;
+}
+.v2 .upload-title { font-size: 16px; font-weight: 600; color: var(--t1); }
+.v2 .upload-hint { font-size: 13px; color: var(--t3); margin-top: 6px; }
+.v2 .upload-btn {
+  display: inline-block; margin-top: 18px; padding: 9px 28px;
+  background: var(--p); color: #fff; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+}
+.v2 .upload-btn:hover { background: #444; }
+.v2 .upload-features { display: flex; gap: 28px; justify-content: center; margin-top: 20px; }
+.v2 .uf-item { font-size: 12px; color: var(--t2); }
+
+/* V2 Results */
+.v2 .results-wrap { margin: 36px 32px; display: flex; gap: 20px; min-height: 650px; }
+.v2 .result-panel {
+  flex: 1; background: var(--card); border-radius: var(--radius);
+  padding: 30px; border: 1px solid var(--border);
+}
+.v2 .rp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.v2 .rp-title { font-size: 16px; font-weight: 600; color: var(--t1); }
+.v2 .rp-badge { font-size: 12px; padding: 3px 10px; border-radius: 4px;
+  background: var(--accent); color: var(--p2); font-weight: 500; }
+.v2 .shot-card {
+  border-bottom: 1px solid var(--border); padding: 18px 0; margin-bottom: 0;
+  transition: background 0.1s;
+}
+.v2 .shot-card:last-child { border-bottom: none; }
+.v2 .shot-card:hover { background: #fafafa; margin: 0 -30px; padding-left: 30px; padding-right: 30px; border-radius: 4px; }
+.v2 .shot-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.v2 .shot-num { font-size: 13px; color: var(--t3); font-weight: 600; min-width: 20px; }
+.v2 .shot-time { font-size: 13px; color: var(--t3); }
+.v2 .shot-mood { font-size: 12px; color: var(--p2); font-weight: 500; }
+.v2 .shot-desc { font-size: 14px; color: var(--t1); line-height: 1.7; }
+.v2 .shot-script { font-size: 13px; color: var(--t2); margin-top: 6px; }
+.v2 .shot-camera { font-size: 12px; color: var(--t3); margin-top: 6px; }
+
+.v2 .prompt-card {
+  border-bottom: 1px solid var(--border); padding: 18px 0;
+}
+.v2 .prompt-card:last-child { border-bottom: none; }
+.v2 .prompt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.v2 .prompt-label { font-size: 14px; font-weight: 600; color: var(--t1); }
+.v2 .prompt-scene { font-size: 12px; color: var(--p2); font-weight: 500; }
+.v2 .prompt-text { font-size: 13px; color: var(--t1); line-height: 1.8; margin-bottom: 8px; }
+.v2 .prompt-img { font-size: 13px; color: var(--t2); line-height: 1.8; }
+.v2 .prompt-actions { display: flex; gap: 10px; margin-top: 10px; }
+.v2 .btn-sm {
+  padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+  font-size: 12px; cursor: pointer; background: #fff; color: var(--t2);
+  transition: all 0.12s;
+}
+.v2 .btn-sm:hover { border-color: var(--t1); color: var(--t1); }
+.v2 .btn-sm.primary { background: var(--p); color: #fff; border-color: var(--p); }
+.v2 .btn-sm.primary:hover { background: #444; }
+
+.v2 .side-panel { width: 430px; flex-shrink: 0; display: flex; flex-direction: column; gap: 18px; }
+.v2 .export-bar {
+  display: flex; gap: 10px; padding: 18px; background: var(--card);
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+.v2 .emotion-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 18px; }
+.v2 .emotion-pill { font-size: 12px; padding: 4px 12px; border-radius: 4px; background: var(--accent); color: var(--p2); font-weight: 500; }
+.v2 .emotion-arrow { color: var(--t3); font-size: 11px; margin: 0 2px; }
+.v2 .token-bar { background: var(--card); border: 1px solid var(--border); }
+
+/* =====================================================
+   V3: 暗色创作风
+   ===================================================== */
+.v3 { --bg: #0A0E27; --card: #111633; --border: #1E2450;
+  --p: #00E5FF; --p2: #7C4DFF; --accent: rgba(0,229,255,0.08);
+  --t1: #EAECF2; --t2: #8890B5; --t3: #505980;
+  --radius: 12px; --shadow: 0 2px 16px rgba(0,0,0,0.3);
+  --font-display: 'Space Grotesk', -apple-system, 'PingFang SC', sans-serif;
+}
+.v3 body-bg { background: var(--bg); display: block; min-height: 100vh; font-family: 'Space Grotesk', -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif; }
+
+.v3 .navbar {
+  display: flex; align-items: center; height: 54px; padding: 0 24px;
+  background: rgba(17,22,51,0.9); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 46px; z-index: 50;
+}
+.v3 .nav-logo { font-family: var(--font-display); font-weight: 700; font-size: 19px; color: var(--p); letter-spacing: -0.3px; text-shadow: 0 0 20px rgba(0,229,255,0.3); }
+.v3 .nav-logo span { font-size: 11px; color: var(--t3); font-weight: 400; margin-left: 6px; letter-spacing: 0; text-shadow: none; }
+.v3 .nav-tabs { display: flex; gap: 0; margin-left: 36px; }
+.v3 .nav-tab {
+  padding: 15px 18px; font-size: 13px; font-weight: 500; color: var(--t2);
+  border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+}
+.v3 .nav-tab:hover { color: var(--t1); }
+.v3 .nav-tab.cur { color: var(--p); border-bottom-color: var(--p); font-weight: 600; text-shadow: 0 0 12px rgba(0,229,255,0.4); }
+.v3 .nav-actions { margin-left: auto; }
+
+/* V3 Upload */
+.v3 .upload-zone {
+  margin: 48px 32px; padding: 80px 60px; text-align: center;
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border); cursor: pointer;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.v3 .upload-zone::before {
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 60%);
+}
+.v3 .upload-zone:hover { border-color: var(--p); box-shadow: 0 0 24px rgba(0,229,255,0.08); }
+.v3 .upload-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px; position: relative; z-index: 1;
+  border: 2px solid var(--p); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--p); font-size: 24px;
+  box-shadow: 0 0 20px rgba(0,229,255,0.15);
+}
+.v3 .upload-title { font-size: 17px; font-weight: 600; color: var(--t1); position: relative; z-index: 1; }
+.v3 .upload-hint { font-size: 13px; color: var(--t3); margin-top: 8px; position: relative; z-index: 1; }
+.v3 .upload-btn {
+  display: inline-block; margin-top: 20px; padding: 10px 32px;
+  background: var(--p); color: #0A0E27; border: none; border-radius: 24px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 0 24px rgba(0,229,255,0.25);
+  transition: all 0.15s; position: relative; z-index: 1;
+}
+.v3 .upload-btn:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(0,229,255,0.4); }
+.v3 .upload-features { display: flex; gap: 24px; justify-content: center; margin-top: 22px; position: relative; z-index: 1; }
+.v3 .uf-item { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px; }
+.v3 .uf-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.v3 .uf-dot.a { background: var(--p); box-shadow: 0 0 6px var(--p); }
+.v3 .uf-dot.b { background: var(--p2); box-shadow: 0 0 6px var(--p2); }
+
+/* V3 Results */
+.v3 .results-wrap { margin: 36px 32px; display: flex; gap: 22px; min-height: 650px; }
+.v3 .result-panel {
+  flex: 1; background: var(--card); border-radius: var(--radius);
+  padding: 30px; border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.v3 .rp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.v3 .rp-title { font-size: 17px; font-weight: 600; color: var(--t1); letter-spacing: -0.2px; }
+.v3 .rp-badge { font-size: 11px; padding: 3px 10px; border-radius: 10px;
+  background: var(--accent); color: var(--p); font-weight: 500; border: 1px solid rgba(0,229,255,0.15); }
+.v3 .shot-card {
+  border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 14px;
+  background: rgba(255,255,255,0.015); transition: all 0.15s;
+}
+.v3 .shot-card:hover { border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.03); }
+.v3 .shot-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.v3 .shot-num { width: 28px; height: 28px; border-radius: 7px; background: var(--accent);
+  color: var(--p); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.v3 .shot-time { font-size: 12px; color: var(--t3); font-family: 'Space Grotesk', monospace; }
+.v3 .shot-mood { font-size: 11px; padding: 3px 10px; border-radius: 8px; font-weight: 500; color: var(--p2); background: rgba(124,77,255,0.1); border: 1px solid rgba(124,77,255,0.15); }
+.v3 .shot-desc { font-size: 14px; color: var(--t1); line-height: 1.7; margin-bottom: 8px; }
+.v3 .shot-script { font-size: 13px; color: var(--t2); background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 6px; border-left: 2px solid var(--p2); }
+.v3 .shot-camera { font-size: 12px; color: var(--t3); margin-top: 8px; }
+
+.v3 .prompt-card {
+  border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 14px;
+  background: rgba(255,255,255,0.015);
+}
+.v3 .prompt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.v3 .prompt-label { font-size: 14px; font-weight: 600; color: var(--t1); }
+.v3 .prompt-scene { font-size: 11px; padding: 3px 10px; border-radius: 8px;
+  background: rgba(0,229,255,0.08); color: var(--p); border: 1px solid rgba(0,229,255,0.12); font-weight: 500; }
+.v3 .prompt-text { font-size: 13px; color: var(--t2); line-height: 1.8; background: rgba(255,255,255,0.03); padding: 14px 16px; border-radius: 6px; margin-bottom: 10px; }
+.v3 .prompt-img { font-size: 13px; color: var(--t2); line-height: 1.8; background: rgba(124,77,255,0.05); padding: 14px 16px; border-radius: 6px; border-left: 2px solid var(--p2); }
+.v3 .prompt-actions { display: flex; gap: 10px; margin-top: 12px; }
+.v3 .btn-sm {
+  padding: 8px 18px; border-radius: 16px; border: 1px solid var(--border);
+  font-size: 12px; cursor: pointer; background: transparent; color: var(--t2);
+  transition: all 0.15s;
+}
+.v3 .btn-sm:hover { border-color: var(--p); color: var(--p); }
+.v3 .btn-sm.primary { background: var(--p); color: #0A0E27; border-color: var(--p); font-weight: 600; box-shadow: 0 0 12px rgba(0,229,255,0.2); }
+.v3 .btn-sm.primary:hover { box-shadow: 0 0 20px rgba(0,229,255,0.35); }
+
+.v3 .side-panel { width: 430px; flex-shrink: 0; display: flex; flex-direction: column; gap: 18px; }
+.v3 .export-bar {
+  display: flex; gap: 10px; padding: 18px; background: var(--card);
+  border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.v3 .emotion-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.v3 .emotion-pill { width: 32px; height: 32px; border-radius: 7px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+.v3 .emotion-arrow { color: var(--t3); font-size: 11px; margin: 0 3px; }
+.v3 .token-bar { background: var(--card); border: 1px solid var(--border); }
+
+/* ---- Processing state shared ---- */
+.processing-card {
+  margin: 48px 32px; padding: 40px 36px;
+  background: var(--card); border-radius: var(--radius);
+}
+.v1 .processing-card { box-shadow: var(--shadow); }
+.v2 .processing-card { border: 1px solid var(--border); }
+.v3 .processing-card { border: 1px solid var(--border); box-shadow: var(--shadow); }
+
+.proc-file { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+.proc-file-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
+.v1 .proc-file-icon { background: #333; }
+.v2 .proc-file-icon { background: var(--p); }
+.v3 .proc-file-icon { background: #1E2450; color: var(--p); border: 1px solid var(--border); }
+.proc-file-name { font-size: 15px; font-weight: 600; }
+.proc-file-meta { font-size: 13px; color: var(--t3); margin-top: 3px; }
+
+.proc-steps { display: flex; gap: 10px; margin-bottom: 20px; }
+.proc-step {
+  flex: 1; padding: 12px 10px; border-radius: 8px; text-align: center;
+  font-size: 13px; font-weight: 500; transition: all 0.3s;
+}
+.v1 .proc-step { background: #f5f5f7; color: var(--t3); }
+.v1 .proc-step.done { background: #e8f0fe; color: var(--p); }
+.v1 .proc-step.cur { background: var(--p); color: #fff; }
+.v2 .proc-step { background: #f5f5f7; color: var(--t3); }
+.v2 .proc-step.done { background: var(--accent); color: var(--p2); }
+.v2 .proc-step.cur { background: var(--p); color: #fff; }
+.v3 .proc-step { background: rgba(255,255,255,0.03); color: var(--t3); border: 1px solid transparent; }
+.v3 .proc-step.done { background: var(--accent); color: var(--p); border-color: rgba(0,229,255,0.15); }
+.v3 .proc-step.cur { background: var(--p); color: #0A0E27; font-weight: 600; }
+
+.proc-bar-wrap { height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.v1 .proc-bar-wrap { background: #f0f0f5; }
+.v2 .proc-bar-wrap { background: #f0f0f5; }
+.v3 .proc-bar-wrap { background: rgba(255,255,255,0.05); }
+.proc-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.v1 .proc-bar-fill { background: linear-gradient(90deg, var(--p), #3399FF); }
+.v2 .proc-bar-fill { background: var(--p); }
+.v3 .proc-bar-fill { background: linear-gradient(90deg, var(--p), rgba(0,229,255,0.5)); box-shadow: 0 0 8px rgba(0,229,255,0.3); }
+.proc-msg { font-size: 12px; color: var(--t3); text-align: center; }
+
+/* ---- Variant scoped ---- */
+.v1, .v2, .v3 { --card: var(--card, #fff); --border: var(--border, #e5e7eb); }
+</style>
+</head>
+<body>
+
+<!-- ===== TAB SWITCHER ===== -->
+<div class="tab-switcher" id="tabBar">
+  <button class="tab-btn active" data-v="v1">🎨 品牌活力风</button>
+  <button class="tab-btn" data-v="v2">◻ 极简工具风</button>
+  <button class="tab-btn" data-v="v3">◼ 暗色创作风</button>
+</div>
+
+<!-- ================================================================
+     V1: 品牌活力风
+     ================================================================ -->
+<div class="variant v1 active" id="v1">
+  <body-bg>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="nav-logo">ScriptX<span>× 即梦提示词</span></div>
+      <div class="nav-tabs">
+        <div class="nav-tab cur">工作台</div>
+        <div class="nav-tab">模板库</div>
+        <div class="nav-tab">历史记录</div>
+      </div>
+    </nav>
+
+    <!-- State toggles -->
+    <div class="state-toggles">
+      <button class="state-btn active" data-st="upload">📤 上传</button>
+      <button class="state-btn" data-st="processing">⏳ 处理中</button>
+      <button class="state-btn" data-st="results">📊 结果展示</button>
+    </div>
+
+    <!-- Upload State -->
+    <div class="state-content active" data-st="upload">
+      <div class="upload-zone">
+        <div class="upload-icon">↑</div>
+        <div class="upload-title">上传MP4视频文件</div>
+        <div class="upload-hint">拖拽文件到这里，或点击选择文件 · 单个MP4格式 · 上限200MB</div>
+        <button class="upload-btn">开始拆解</button>
+        <div class="upload-features">
+          <div class="uf-item"><span class="uf-dot a"></span>自动分镜拆解</div>
+          <div class="uf-item"><span class="uf-dot b"></span>即梦文生+图生提示词</div>
+          <div class="uf-item"><span class="uf-dot c"></span>一键导出Markdown/JSON</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing State -->
+    <div class="state-content" data-st="processing">
+      <div class="processing-card">
+        <div class="proc-file">
+          <div class="proc-file-icon">MP4</div>
+          <div>
+            <div class="proc-file-name" style="color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</div>
+            <div class="proc-file-meta">23.4MB · 时长27秒</div>
+          </div>
+        </div>
+        <div class="proc-steps">
+          <div class="proc-step done">✓ 视频处理</div>
+          <div class="proc-step done">✓ 语音转文字</div>
+          <div class="proc-step cur">● AI脚本拆解</div>
+          <div class="proc-step">提示词生成</div>
+        </div>
+        <div class="proc-bar-wrap"><div class="proc-bar-fill" style="width:65%"></div></div>
+        <div class="proc-msg">正在AI拆解脚本... 65%</div>
+      </div>
+    </div>
+
+    <!-- Results State -->
+    <div class="state-content" data-st="results">
+      <!-- File info bar -->
+      <div style="margin:32px 32px 0;display:flex;align-items:center;gap:12px;font-size:14px;">
+        <span style="font-weight:600;color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</span>
+        <span style="color:var(--t3);font-size:13px;">23.4MB · 27秒</span>
+        <span style="margin-left:auto;color:var(--p);font-size:13px;cursor:pointer;">重新上传</span>
+      </div>
+
+      <div class="results-wrap">
+        <!-- Left: Script Panel -->
+        <div class="result-panel">
+          <div class="rp-header">
+            <span class="rp-title">脚本拆解结果</span>
+            <span class="rp-badge">4个分镜</span>
+          </div>
+
+          <!-- Emotion curve -->
+          <div class="emotion-row">
+            <span style="font-size:12px;color:var(--t3);margin-right:8px;">情绪曲线</span>
+            <div class="emotion-pill" style="background:#fecaca">焦虑</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:#bfdbfe">好奇</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:#99f6e4">释然</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:#fde68a">行动</div>
+          </div>
+
+          <!-- Shots -->
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">1</span>
+              <span class="shot-time">0-3s</span>
+              <span class="shot-mood" style="background:#fef2f2;color:#991b1b">焦虑</span>
+            </div>
+            <div class="shot-desc">一位穿白衬衫的亚洲女性站在厨房中景，手拿不锈钢锅铲翻炒食材</div>
+            <div class="shot-script">"你还在这样炒菜吗？"</div>
+            <div class="shot-camera">🎥 中景→近景推进</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">2</span>
+              <span class="shot-time">3-9s</span>
+              <span class="shot-mood" style="background:#eff6ff;color:#1d4ed8">好奇</span>
+            </div>
+            <div class="shot-desc">女性翻开锅盖，蒸汽升起，露出金黄色炒蛋</div>
+            <div class="shot-script">"其实只需3步，比饭店还香"</div>
+            <div class="shot-camera">🎥 近景固定→微推</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">3</span>
+              <span class="shot-time">9-18s</span>
+              <span class="shot-mood" style="background:#f0fdf4;color:#0f766e">释然</span>
+            </div>
+            <div class="shot-desc">女性微笑展示成品，桌面摆盘，背景暖色调</div>
+            <div class="shot-script">"第一步热油，第二步翻炒，第三步调味"</div>
+            <div class="shot-camera">🎥 中景→特写切换</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">4</span>
+              <span class="shot-time">18-27s</span>
+              <span class="shot-mood" style="background:#fffbeb;color:#92400e">行动欲</span>
+            </div>
+            <div class="shot-desc">成品端上桌，家人伸手夹菜，满足表情</div>
+            <div class="shot-script">"今晚就试试，评论区告诉我结果"</div>
+            <div class="shot-camera">🎥 全景→近景</div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <span style="font-size:12px;color:var(--t3);margin-right:4px;">结构：</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,102,255,0.08);color:var(--p);margin-right:6px;">问题型开头</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,102,255,0.08);color:var(--p);margin-right:6px;">步骤型中间</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,102,255,0.08);color:var(--p);">号召行动结尾</span>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn-sm">✎ 编辑拆解</button>
+          </div>
+        </div>
+
+        <!-- Right: Prompt Panel + Export -->
+        <div class="side-panel">
+          <div class="result-panel" style="flex:1;">
+            <div class="rp-header">
+              <span class="rp-title">即梦提示词</span>
+              <span class="rp-badge">文生+图生</span>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #1 — 0-3s | 焦虑</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">一位穿白衬衫的亚洲年轻女性站在厨房中景，双手拿着不锈钢锅铲翻炒锅中食材，表情焦虑，暖色调侧光，烟火光影质感</div>
+              <div class="prompt-img">图生：女性手拿锅铲翻炒食材，中景缓慢推进至近景，焦虑表情，暖色调侧光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #2 — 3-9s | 好奇</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">亚洲女性双手翻开不锈钢锅盖，大量蒸汽从锅中升起，露出金黄色炒蛋，好奇表情，暖色调厨房灯光</div>
+              <div class="prompt-img">图生：女性翻开锅盖蒸汽升起，近景微推，好奇表情，暖色调灯光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:8px;">
+              <button class="btn-sm">✎ 编辑提示词</button>
+              <button class="btn-sm">↻ 重新生成</button>
+            </div>
+          </div>
+
+          <!-- Export Bar -->
+          <div class="export-bar">
+            <button class="btn-sm primary" style="flex:1;">📋 一键复制全部</button>
+            <button class="btn-sm">💾 MD</button>
+            <button class="btn-sm">💾 JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design Tokens -->
+    <div class="token-bar">
+      <span style="font-weight:600;color:var(--t1);margin-right:8px;">设计系统</span>
+      <div class="tok"><span class="label">主色</span><span class="swatch" style="background:#0066FF"></span>#0066FF</div>
+      <div class="tok"><span class="label">辅色</span><span class="swatch" style="background:#FF5C39"></span>#FF5C39</div>
+      <div class="tok"><span class="label">强调</span><span class="swatch" style="background:#FFB800"></span>#FFB800</div>
+      <div class="tok"><span class="label">背景</span><span class="swatch" style="background:#FFFBF5;border:1px solid #efe8db"></span>#FFFBF5</div>
+      <span style="margin-left:auto;font-size:11px;color:var(--t3);">字体: Outfit + PingFang SC · 圆角: 18px · 字号: 规范级</span>
+    </div>
+
+  </body-bg>
+</div>
+
+<!-- ================================================================
+     V2: 极简工具风
+     ================================================================ -->
+<div class="variant v2" id="v2">
+  <body-bg>
+
+    <nav class="navbar">
+      <div class="nav-logo">ScriptX<span>× 即梦提示词</span></div>
+      <div class="nav-tabs">
+        <div class="nav-tab cur">工作台</div>
+        <div class="nav-tab">模板库</div>
+        <div class="nav-tab">历史记录</div>
+      </div>
+    </nav>
+
+    <div class="state-toggles">
+      <button class="state-btn active" data-st="upload">📤 上传</button>
+      <button class="state-btn" data-st="processing">⏳ 处理中</button>
+      <button class="state-btn" data-st="results">📊 结果展示</button>
+    </div>
+
+    <div class="state-content active" data-st="upload">
+      <div class="upload-zone">
+        <div class="upload-icon">↑</div>
+        <div class="upload-title">上传MP4视频文件</div>
+        <div class="upload-hint">拖拽文件到这里，或点击选择文件 · 单个MP4格式 · 上限200MB</div>
+        <button class="upload-btn">开始拆解</button>
+        <div class="upload-features">
+          <div class="uf-item">自动分镜拆解</div>
+          <div class="uf-item">即梦文生+图生提示词</div>
+          <div class="uf-item">一键导出Markdown/JSON</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-content" data-st="processing">
+      <div class="processing-card">
+        <div class="proc-file">
+          <div class="proc-file-icon">MP4</div>
+          <div>
+            <div class="proc-file-name" style="color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</div>
+            <div class="proc-file-meta">23.4MB · 时长27秒</div>
+          </div>
+        </div>
+        <div class="proc-steps">
+          <div class="proc-step done">✓ 视频处理</div>
+          <div class="proc-step done">✓ 语音转文字</div>
+          <div class="proc-step cur">● AI脚本拆解</div>
+          <div class="proc-step">提示词生成</div>
+        </div>
+        <div class="proc-bar-wrap"><div class="proc-bar-fill" style="width:65%"></div></div>
+        <div class="proc-msg">正在AI拆解脚本... 65%</div>
+      </div>
+    </div>
+
+    <div class="state-content" data-st="results">
+      <div style="margin:32px 32px 0;display:flex;align-items:center;gap:12px;font-size:14px;">
+        <span style="font-weight:600;color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</span>
+        <span style="color:var(--t3);font-size:13px;">23.4MB · 27秒</span>
+        <span style="margin-left:auto;color:var(--p2);font-size:13px;cursor:pointer;">重新上传</span>
+      </div>
+
+      <div class="results-wrap">
+        <div class="result-panel">
+          <div class="rp-header">
+            <span class="rp-title">脚本拆解结果</span>
+            <span class="rp-badge">4个分镜</span>
+          </div>
+
+          <div class="emotion-row">
+            <span style="font-size:11px;color:var(--t3);margin-right:8px;">情绪曲线</span>
+            <span class="emotion-pill">焦虑</span>
+            <span class="emotion-arrow">→</span>
+            <span class="emotion-pill">好奇</span>
+            <span class="emotion-arrow">→</span>
+            <span class="emotion-pill">释然</span>
+            <span class="emotion-arrow">→</span>
+            <span class="emotion-pill">行动</span>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">#1</span>
+              <span class="shot-time">0-3s</span>
+              <span class="shot-mood">焦虑</span>
+            </div>
+            <div class="shot-desc">一位穿白衬衫的亚洲女性站在厨房中景，手拿不锈钢锅铲翻炒食材</div>
+            <div class="shot-script">"你还在这样炒菜吗？"</div>
+            <div class="shot-camera">中景→近景推进</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">#2</span>
+              <span class="shot-time">3-9s</span>
+              <span class="shot-mood">好奇</span>
+            </div>
+            <div class="shot-desc">女性翻开锅盖，蒸汽升起，露出金黄色炒蛋</div>
+            <div class="shot-script">"其实只需3步，比饭店还香"</div>
+            <div class="shot-camera">近景固定→微推</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">#3</span>
+              <span class="shot-time">9-18s</span>
+              <span class="shot-mood">释然</span>
+            </div>
+            <div class="shot-desc">女性微笑展示成品，桌面摆盘，背景暖色调</div>
+            <div class="shot-script">"第一步热油，第二步翻炒，第三步调味"</div>
+            <div class="shot-camera">中景→特写切换</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">#4</span>
+              <span class="shot-time">18-27s</span>
+              <span class="shot-mood">行动欲</span>
+            </div>
+            <div class="shot-desc">成品端上桌，家人伸手夹菜，满足表情</div>
+            <div class="shot-script">"今晚就试试，评论区告诉我结果"</div>
+            <div class="shot-camera">全景→近景</div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--t3);">结构：</span>
+            <span style="font-size:11px;color:var(--p2);">问题型开头</span>
+            <span style="color:var(--t3);">·</span>
+            <span style="font-size:11px;color:var(--p2);">步骤型中间</span>
+            <span style="color:var(--t3);">·</span>
+            <span style="font-size:11px;color:var(--p2);">号召行动结尾</span>
+          </div>
+
+          <div style="margin-top:14px;">
+            <button class="btn-sm">编辑拆解</button>
+          </div>
+        </div>
+
+        <div class="side-panel">
+          <div class="result-panel" style="flex:1;">
+            <div class="rp-header">
+              <span class="rp-title">即梦提示词</span>
+              <span class="rp-badge">文生+图生</span>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #1 — 0-3s | 焦虑</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">一位穿白衬衫的亚洲年轻女性站在厨房中景，双手拿着不锈钢锅铲翻炒锅中食材，表情焦虑，暖色调侧光，烟火光影质感</div>
+              <div class="prompt-img">图生：女性手拿锅铲翻炒食材，中景缓慢推进至近景，焦虑表情，暖色调侧光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #2 — 3-9s | 好奇</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">亚洲女性双手翻开不锈钢锅盖，大量蒸汽从锅中升起，露出金黄色炒蛋，好奇表情，暖色调厨房灯光</div>
+              <div class="prompt-img">图生：女性翻开锅盖蒸汽升起，近景微推，好奇表情，暖色调灯光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button class="btn-sm">编辑提示词</button>
+              <button class="btn-sm">重新生成</button>
+            </div>
+          </div>
+
+          <div class="export-bar">
+            <button class="btn-sm primary" style="flex:1;">一键复制全部</button>
+            <button class="btn-sm">导出MD</button>
+            <button class="btn-sm">导出JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="token-bar">
+      <span style="font-weight:600;color:var(--t1);margin-right:8px;">设计系统</span>
+      <div class="tok"><span class="label">主色</span><span class="swatch" style="background:#2D2D2D"></span>#2D2D2D</div>
+      <div class="tok"><span class="label">强调</span><span class="swatch" style="background:#5B6CF0"></span>#5B6CF0</div>
+      <div class="tok"><span class="label">背景</span><span class="swatch" style="background:#F5F5F7;border:1px solid #e5e5ea"></span>#F5F5F7</div>
+      <span style="margin-left:auto;font-size:11px;color:var(--t3);">字体: System Sans · 圆角: 8px · 字号: 规范级 · 无阴影装饰</span>
+    </div>
+
+  </body-bg>
+</div>
+
+<!-- ================================================================
+     V3: 暗色创作风
+     ================================================================ -->
+<div class="variant v3" id="v3">
+  <body-bg>
+
+    <nav class="navbar">
+      <div class="nav-logo">ScriptX<span>× 即梦提示词</span></div>
+      <div class="nav-tabs">
+        <div class="nav-tab cur">工作台</div>
+        <div class="nav-tab">模板库</div>
+        <div class="nav-tab">历史记录</div>
+      </div>
+    </nav>
+
+    <div class="state-toggles">
+      <button class="state-btn active" data-st="upload">📤 上传</button>
+      <button class="state-btn" data-st="processing">⏳ 处理中</button>
+      <button class="state-btn" data-st="results">📊 结果展示</button>
+    </div>
+
+    <div class="state-content active" data-st="upload">
+      <div class="upload-zone">
+        <div class="upload-icon">↑</div>
+        <div class="upload-title">上传MP4视频文件</div>
+        <div class="upload-hint">拖拽文件到这里，或点击选择文件 · 单个MP4格式 · 上限200MB</div>
+        <button class="upload-btn">开始拆解</button>
+        <div class="upload-features">
+          <div class="uf-item"><span class="uf-dot a"></span>自动分镜拆解</div>
+          <div class="uf-item"><span class="uf-dot b"></span>即梦文生+图生提示词</div>
+          <div class="uf-item"><span class="uf-dot a"></span>一键导出Markdown/JSON</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-content" data-st="processing">
+      <div class="processing-card">
+        <div class="proc-file">
+          <div class="proc-file-icon">MP4</div>
+          <div>
+            <div class="proc-file-name" style="color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</div>
+            <div class="proc-file-meta">23.4MB · 时长27秒</div>
+          </div>
+        </div>
+        <div class="proc-steps">
+          <div class="proc-step done">✓ 视频处理</div>
+          <div class="proc-step done">✓ 语音转文字</div>
+          <div class="proc-step cur">● AI脚本拆解</div>
+          <div class="proc-step">提示词生成</div>
+        </div>
+        <div class="proc-bar-wrap"><div class="proc-bar-fill" style="width:65%"></div></div>
+        <div class="proc-msg">正在AI拆解脚本... 65%</div>
+      </div>
+    </div>
+
+    <div class="state-content" data-st="results">
+      <div style="margin:32px 32px 0;display:flex;align-items:center;gap:12px;font-size:14px;">
+        <span style="font-weight:600;color:var(--t1)">美食教程-你还在这样炒菜吗.mp4</span>
+        <span style="color:var(--t3);font-size:13px;">23.4MB · 27秒</span>
+        <span style="margin-left:auto;color:var(--p);font-size:13px;cursor:pointer;">重新上传 ↑</span>
+      </div>
+
+      <div class="results-wrap">
+        <div class="result-panel">
+          <div class="rp-header">
+            <span class="rp-title">脚本拆解结果</span>
+            <span class="rp-badge">4个分镜</span>
+          </div>
+
+          <div class="emotion-row">
+            <span style="font-size:11px;color:var(--t3);margin-right:8px;">情绪曲线</span>
+            <div class="emotion-pill" style="background:rgba(254,202,202,0.25);color:#fecaca">焦虑</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:rgba(191,219,254,0.25);color:#bfdbfe">好奇</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:rgba(153,246,228,0.25);color:#99f6e4">释然</div>
+            <span class="emotion-arrow">→</span>
+            <div class="emotion-pill" style="background:rgba(253,230,138,0.25);color:#fde68a">行动</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">1</span>
+              <span class="shot-time">0-3s</span>
+              <span class="shot-mood">焦虑</span>
+            </div>
+            <div class="shot-desc">一位穿白衬衫的亚洲女性站在厨房中景，手拿不锈钢锅铲翻炒食材</div>
+            <div class="shot-script">"你还在这样炒菜吗？"</div>
+            <div class="shot-camera">🎥 中景→近景推进</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">2</span>
+              <span class="shot-time">3-9s</span>
+              <span class="shot-mood">好奇</span>
+            </div>
+            <div class="shot-desc">女性翻开锅盖，蒸汽升起，露出金黄色炒蛋</div>
+            <div class="shot-script">"其实只需3步，比饭店还香"</div>
+            <div class="shot-camera">🎥 近景固定→微推</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">3</span>
+              <span class="shot-time">9-18s</span>
+              <span class="shot-mood">释然</span>
+            </div>
+            <div class="shot-desc">女性微笑展示成品，桌面摆盘，背景暖色调</div>
+            <div class="shot-script">"第一步热油，第二步翻炒，第三步调味"</div>
+            <div class="shot-camera">🎥 中景→特写切换</div>
+          </div>
+
+          <div class="shot-card">
+            <div class="shot-top">
+              <span class="shot-num">4</span>
+              <span class="shot-time">18-27s</span>
+              <span class="shot-mood">行动欲</span>
+            </div>
+            <div class="shot-desc">成品端上桌，家人伸手夹菜，满足表情</div>
+            <div class="shot-script">"今晚就试试，评论区告诉我结果"</div>
+            <div class="shot-camera">🎥 全景→近景</div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--t3);">结构：</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:rgba(0,229,255,0.06);color:var(--p);border:1px solid rgba(0,229,255,0.12);">问题型开头</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:rgba(0,229,255,0.06);color:var(--p);border:1px solid rgba(0,229,255,0.12);">步骤型中间</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:rgba(0,229,255,0.06);color:var(--p);border:1px solid rgba(0,229,255,0.12);">号召行动结尾</span>
+          </div>
+
+          <div style="margin-top:14px;">
+            <button class="btn-sm">✎ 编辑拆解</button>
+          </div>
+        </div>
+
+        <div class="side-panel">
+          <div class="result-panel" style="flex:1;">
+            <div class="rp-header">
+              <span class="rp-title">即梦提示词</span>
+              <span class="rp-badge">文生+图生</span>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #1 — 0-3s | 焦虑</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">一位穿白衬衫的亚洲年轻女性站在厨房中景，双手拿着不锈钢锅铲翻炒锅中食材，表情焦虑，暖色调侧光，烟火光影质感</div>
+              <div class="prompt-img">图生：女性手拿锅铲翻炒食材，中景缓慢推进至近景，焦虑表情，暖色调侧光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-top">
+                <span class="prompt-label">分镜 #2 — 3-9s | 好奇</span>
+                <span class="prompt-scene">美食类</span>
+              </div>
+              <div class="prompt-text">亚洲女性双手翻开不锈钢锅盖，大量蒸汽从锅中升起，露出金黄色炒蛋，好奇表情，暖色调厨房灯光</div>
+              <div class="prompt-img">图生：女性翻开锅盖蒸汽升起，近景微推，好奇表情，暖色调灯光</div>
+              <div class="prompt-actions"><button class="btn-sm primary">复制</button></div>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button class="btn-sm">✎ 编辑提示词</button>
+              <button class="btn-sm">↻ 重新生成</button>
+            </div>
+          </div>
+
+          <div class="export-bar">
+            <button class="btn-sm primary" style="flex:1;">📋 一键复制全部</button>
+            <button class="btn-sm">💾 MD</button>
+            <button class="btn-sm">💾 JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="token-bar">
+      <span style="font-weight:600;color:var(--t1);margin-right:8px;">设计系统</span>
+      <div class="tok"><span class="label">主色</span><span class="swatch" style="background:#00E5FF"></span>#00E5FF</div>
+      <div class="tok"><span class="label">辅色</span><span class="swatch" style="background:#7C4DFF"></span>#7C4DFF</div>
+      <div class="tok"><span class="label">背景</span><span class="swatch" style="background:#0A0E27;border:1px solid #1E2450"></span>#0A0E27</div>
+      <span style="margin-left:auto;font-size:11px;color:var(--t3);">字体: Space Grotesk + PingFang SC · 圆角: 12px · 字号: 规范级 · 发光点缀</span>
+    </div>
+
+  </body-bg>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script>
+// ---- Tab switching ----
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.dataset.v;
+    document.querySelectorAll('.variant').forEach(el => el.classList.remove('active'));
+    document.getElementById(v).classList.add('active');
+  });
+});
+
+// ---- State toggles (upload / processing / results) within active variant ----
+document.querySelectorAll('.state-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const st = btn.dataset.st;
+    // Find the parent variant
+    const variant = btn.closest('.variant');
+    if (!variant) return;
+    // Deactivate all state buttons in this variant
+    variant.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Show/hide state contents in this variant
+    variant.querySelectorAll('.state-content').forEach(el => {
+      el.classList.toggle('active', el.dataset.st === st);
+    });
+  });
+});
+
+// ---- Keyboard: 1/2/3 to switch variants ----
+document.addEventListener('keydown', e => {
+  if (e.key === '1' || e.key === '2' || e.key === '3') {
+    const map = { '1': 'v1', '2': 'v2', '3': 'v3' };
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.v === map[e.key]);
+    });
+    document.querySelectorAll('.variant').forEach(el => {
+      el.classList.toggle('active', el.id === map[e.key]);
+    });
+  }
+});
+</script>
+</body>
+</html>

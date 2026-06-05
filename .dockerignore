@@ -1,0 +1,8 @@
+node_modules
+.next
+data
+uploads
+.git
+*.md
+.env.local
+.env*.local

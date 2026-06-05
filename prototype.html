@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爆款脚本拆解 × 即梦提示词 — 原型图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+/* 顶部导航 */
+.navbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 24px; display: flex; align-items: center; height: 56px; position: sticky; top: 0; z-index: 100; }
+.navbar .logo { font-size: 18px; font-weight: 700; color: #00a1d6; margin-right: 32px; }
+.navbar .logo span { font-size: 12px; color: #999; font-weight: 400; }
+.nav-tabs { display: flex; gap: 0; }
+.nav-tab { padding: 16px 20px; font-size: 14px; color: #666; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.nav-tab.active { color: #00a1d6; border-bottom-color: #00a1d6; font-weight: 600; }
+.nav-tab:hover { color: #333; }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ===== 工作台页面 ===== */
+.workspace { padding: 20px 24px; }
+
+/* 上传区域 */
+.upload-area { background: #fff; border-radius: 12px; padding: 40px; margin-bottom: 16px; text-align: center; border: 2px dashed #d1d5db; transition: border-color 0.2s; }
+.upload-area:hover { border-color: #00a1d6; }
+.upload-area.dragging { border-color: #00a1d6; background: #f0f9ff; }
+.upload-icon { font-size: 48px; color: #00a1d6; margin-bottom: 12px; }
+.upload-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.upload-hint { font-size: 13px; color: #999; }
+.upload-btn { margin-top: 16px; background: #00a1d6; color: #fff; border: none; padding: 10px 32px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.upload-btn:hover { background: #0089b7; }
+.upload-btn.disabled { background: #ccc; cursor: not-allowed; }
+
+/* 上传后的文件信息 */
+.file-info { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; display: none; }
+.file-info.show { display: flex; align-items: center; gap: 12px; }
+.file-thumb { width: 80px; height: 60px; background: #333; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; }
+.file-meta { flex: 1; }
+.file-name { font-size: 14px; font-weight: 600; }
+.file-size { font-size: 12px; color: #999; }
+.file-remove { color: #999; cursor: pointer; font-size: 20px; }
+
+/* 处理进度 */
+.progress-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; display: none; }
+.progress-bar.show { display: block; }
+.progress-steps { display: flex; gap: 8px; margin-bottom: 8px; }
+.progress-step { flex: 1; padding: 8px 12px; border-radius: 6px; font-size: 12px; text-align: center; background: #f0f2f5; color: #999; }
+.progress-step.done { background: #e6f7ff; color: #1890ff; }
+.progress-step.current { background: #00a1d6; color: #fff; }
+.progress-percent { font-size: 13px; color: #666; text-align: center; }
+
+/* 主内容区：左右分栏 */
+.main-content { display: flex; gap: 16px; min-height: 600px; }
+
+/* 左侧：脚本拆解 */
+.panel-left { flex: 1; background: #fff; border-radius: 12px; padding: 20px; }
+.panel-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.panel-title .badge { background: #00a1d6; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+
+/* 分镜列表 */
+.shot-list { margin-bottom: 20px; }
+.shot-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+.shot-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.shot-num { background: #00a1d6; color: #fff; width: 24px; height: 24px; border-radius: 4px; text-align: center; font-size: 12px; line-height: 24px; }
+.shot-time { font-size: 12px; color: #999; }
+.shot-mood { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #fde68a; color: #92400e; }
+.shot-desc { font-size: 13px; margin-bottom: 4px; }
+.shot-script { font-size: 12px; color: #666; background: #f9fafb; padding: 6px 10px; border-radius: 4px; }
+.shot-camera { font-size: 11px; color: #999; margin-top: 4px; }
+
+/* 钩子分析 */
+.hook-section { margin-bottom: 20px; }
+.hook-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f2f5; }
+.hook-type { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #fecaca; color: #991b1b; }
+.hook-text { font-size: 13px; flex: 1; }
+.hook-score { font-size: 13px; font-weight: 600; color: #00a1d6; }
+
+/* 内容结构 & 情绪曲线 */
+.structure-section, .emotion-section { margin-bottom: 20px; }
+.structure-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #e6f7ff; color: #1890ff; margin-right: 4px; }
+.emotion-bar { display: flex; align-items: center; gap: 4px; padding: 8px 0; }
+.emotion-point { width: 28px; height: 28px; border-radius: 14px; background: #fde68a; text-align: center; font-size: 10px; line-height: 28px; }
+.emotion-arrow { color: #999; font-size: 10px; }
+
+.edit-btn { background: #f0f2f5; border: 1px solid #e5e7eb; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #666; }
+.edit-btn:hover { background: #e5e7eb; }
+
+/* 右侧：即梦提示词 */
+.panel-right { flex: 1; background: #fff; border-radius: 12px; padding: 20px; }
+
+.prompt-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.prompt-label { font-size: 13px; font-weight: 600; }
+.prompt-scene { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #99f6e4; color: #0f766e; }
+.prompt-text { font-size: 13px; background: #f9fafb; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; line-height: 1.5; }
+.prompt-text.warning { border-left: 3px solid #fde68a; }
+.prompt-img-tag { font-size: 11px; color: #00a1d6; margin-bottom: 4px; }
+.prompt-copy { background: none; border: 1px solid #00a1d6; color: #00a1d6; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.prompt-copy:hover { background: #00a1d6; color: #fff; }
+
+/* 校验提示 */
+.validation-list { margin-bottom: 16px; }
+.validation-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.validation-icon.pass { color: #52c41a; }
+.validation-icon.warn { color: #faad14; }
+.validation-icon.fail { color: #ff4d4f; }
+.validation-text { font-size: 12px; }
+
+.export-bar { display: flex; gap: 8px; margin-top: 16px; }
+.export-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.export-btn.primary { background: #00a1d6; color: #fff; border: none; }
+.export-btn.secondary { background: #fff; border: 1px solid #e5e7eb; color: #666; }
+
+/* ===== 模板库页面 ===== */
+.template-page { padding: 20px 24px; }
+.template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.template-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; }
+.template-card:hover { border-color: #00a1d6; box-shadow: 0 2px 8px rgba(0,161,214,0.1); }
+.template-type { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #e6f7ff; color: #1890ff; }
+.template-name { font-size: 15px; font-weight: 600; margin: 8px 0 4px; }
+.template-desc { font-size: 12px; color: #999; margin-bottom: 12px; }
+.template-preview { font-size: 12px; background: #f9fafb; padding: 8px 12px; border-radius: 4px; color: #666; line-height: 1.4; }
+.template-actions { display: flex; gap: 8px; margin-top: 12px; }
+.template-use { background: #00a1d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.template-save { background: #fff; border: 1px solid #e5e7eb; color: #666; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+
+/* ===== 历史记录页面 ===== */
+.history-page { padding: 20px 24px; }
+.history-search { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; }
+.history-search input { flex: 1; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; }
+.history-search select { padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; color: #666; }
+.history-list { display: flex; flex-direction: column; gap: 12px; }
+.history-item { background: #fff; border-radius: 12px; padding: 16px 20px; border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; }
+.history-item:hover { border-color: #00a1d6; }
+.history-item-header { display: flex; justify-content: space-between; align-items: center; }
+.history-item-title { font-size: 14px; font-weight: 600; }
+.history-item-date { font-size: 12px; color: #999; }
+.history-item-meta { font-size: 12px; color: #666; margin-top: 4px; }
+.history-item-tags { display: flex; gap: 4px; margin-top: 8px; }
+.history-item-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #f0f2f5; color: #666; }
+
+/* 空状态 */
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state .title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.empty-state .hint { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="navbar">
+  <div class="logo">ScriptX<span> × 即梦提示词</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchPage('workspace')">工作台</div>
+    <div class="nav-tab" onclick="switchPage('template')">模板库</div>
+    <div class="nav-tab" onclick="switchPage('history')">历史记录</div>
+  </div>
+</div>
+
+<!-- ===== 工作台页面 ===== -->
+<div id="page-workspace" class="page active">
+  <div class="workspace">
+
+    <!-- 上传区域 -->
+    <div class="upload-area" id="uploadArea" onclick="simulateUpload()">
+      <div class="upload-icon">&#128249;</div>
+      <div class="upload-title">上传MP4视频文件</div>
+      <div class="upload-hint">拖拽文件到这里，或点击选择文件 | 单个文件，MP4格式，上限200MB</div>
+      <button class="upload-btn">开始拆解</button>
+    </div>
+
+    <!-- 上传后的文件信息 -->
+    <div class="file-info" id="fileInfo">
+      <div class="file-thumb">MP4</div>
+      <div class="file-meta">
+        <div class="file-name">美食教程-你还在这样炒菜吗.mp4</div>
+        <div class="file-size">23.5MB | 时长45秒</div>
+      </div>
+      <div class="file-remove" onclick="resetUpload()">&#10005;</div>
+    </div>
+
+    <!-- 处理进度 -->
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-steps">
+        <div class="progress-step done">&#10003; 语音转文字</div>
+        <div class="progress-step done">&#10003; 关键帧提取</div>
+        <div class="progress-step current">&#9679; AI脚本拆解</div>
+        <div class="progress-step">提示词生成</div>
+      </div>
+      <div class="progress-percent">正在拆解脚本结构... 75%</div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+
+      <!-- 左侧：脚本拆解结果 -->
+      <div class="panel-left">
+        <div class="panel-title">脚本拆解结果 <span class="badge">5个分镜</span></div>
+
+        <div class="shot-list">
+          <div class="shot-item">
+            <div class="shot-header">
+              <div class="shot-num">1</div>
+              <div class="shot-time">0-3s</div>
+              <div class="shot-mood">焦虑</div>
+            </div>
+            <div class="shot-desc">一位穿白衬衫的亚洲女性站在厨房中景，手拿不锈钢锅铲翻炒食材</div>
+            <div class="shot-script">"你还在这样炒菜吗？"</div>
+            <div class="shot-camera">&#128247; 中景→近景推进</div>
+          </div>
+          <div class="shot-item">
+            <div class="shot-header">
+              <div class="shot-num">2</div>
+              <div class="shot-time">3-9s</div>
+              <div class="shot-mood">好奇</div>
+            </div>
+            <div class="shot-desc">女性翻开锅盖，蒸汽升起，露出金黄色炒蛋</div>
+            <div class="shot-script">"其实只需3步，比饭店还香"</div>
+            <div class="shot-camera">&#128247; 近景固定→微推</div>
+          </div>
+          <div class="shot-item">
+            <div class="shot-header">
+              <div class="shot-num">3</div>
+              <div class="shot-time">9-18s</div>
+              <div class="shot-mood">释然</div>
+            </div>
+            <div class="shot-desc">女性微笑展示成品，桌面摆盘，背景暖色调</div>
+            <div class="shot-script">"第一步热油，第二步翻炒，第三步调味"</div>
+            <div class="shot-camera">&#128247; 中景→特写切换</div>
+          </div>
+          <div class="shot-item">
+            <div class="shot-header">
+              <div class="shot-num">4</div>
+              <div class="shot-time">18-27s</div>
+              <div class="shot-mood">行动欲</div>
+            </div>
+            <div class="shot-desc">成品端上桌，家人伸手夹菜，满足表情</div>
+            <div class="shot-script">"今晚就试试，评论区告诉我结果"</div>
+            <div class="shot-camera">&#128247; 全景→近景</div>
+          </div>
+        </div>
+
+        <!-- 钩子分析 -->
+        <div class="hook-section">
+          <div class="panel-title" style="font-size:14px;">钩子分析</div>
+          <div class="hook-item">
+            <div class="hook-type">提问型</div>
+            <div class="hook-text">"你还在这样炒菜吗？" — 第0秒</div>
+            <div class="hook-score">8.5</div>
+          </div>
+          <div class="hook-item">
+            <div class="hook-type">数字型</div>
+            <div class="hook-text">"只需3步" — 第3秒</div>
+            <div class="hook-score">7.2</div>
+          </div>
+          <div class="hook-item">
+            <div class="hook-type">号召型</div>
+            <div class="hook-text">"今晚就试试" — 第18秒</div>
+            <div class="hook-score">6.8</div>
+          </div>
+        </div>
+
+        <!-- 内容结构 -->
+        <div class="structure-section">
+          <div class="panel-title" style="font-size:14px;">内容结构</div>
+          <div style="font-size:13px; line-height:2;">
+            开头：<span class="structure-tag">问题型</span>
+            中间：<span class="structure-tag">步骤型</span>
+            结尾：<span class="structure-tag">号召行动</span>
+          </div>
+        </div>
+
+        <!-- 情绪曲线 -->
+        <div class="emotion-section">
+          <div class="panel-title" style="font-size:14px;">情绪曲线</div>
+          <div class="emotion-bar">
+            <div class="emotion-point" style="background:#fecaca;color:#991b1b;">焦虑</div>
+            <div class="emotion-arrow">&#8594;</div>
+            <div class="emotion-point" style="background:#bfdbfe;color:#1d4ed8;">好奇</div>
+            <div class="emotion-arrow">&#8594;</div>
+            <div class="emotion-point" style="background:#99f6e4;color:#0f766e;">释然</div>
+            <div class="emotion-arrow">&#8594;</div>
+            <div class="emotion-point" style="background:#fde68a;color:#92400e;">行动</div>
+          </div>
+        </div>
+
+        <button class="edit-btn">&#9998; 编辑拆解</button>
+      </div>
+
+      <!-- 右侧：即梦提示词 -->
+      <div class="panel-right">
+        <div class="panel-title">即梦提示词 <span class="badge">文生+图生</span></div>
+
+        <div class="prompt-item">
+          <div class="prompt-header">
+            <div class="prompt-label">分镜 #1 — 0-3s | 焦虑</div>
+            <div class="prompt-scene">美食类</div>
+          </div>
+          <div class="prompt-img-tag">&#128247; 图生推荐 | 关键帧: kitchen_frame_1.jpg</div>
+          <div class="prompt-text">一位穿白衬衫的亚洲年轻女性站在厨房中景，双手拿着不锈钢锅铲翻炒锅中食材，表情焦虑，暖色调侧光，烟火光影质感</div>
+          <div class="prompt-text warning" style="font-size:12px; color:#92400e; background:#fef3c7; border-left-color:#faad14;">
+            图生：女性手拿锅铲翻炒食材，中景缓慢推进至近景，焦虑表情，暖色调侧光
+          </div>
+          <button class="prompt-copy">&#128203; 复制</button>
+        </div>
+
+        <div class="prompt-item">
+          <div class="prompt-header">
+            <div class="prompt-label">分镜 #2 — 3-9s | 好奇</div>
+            <div class="prompt-scene">美食类</div>
+          </div>
+          <div class="prompt-text">亚洲女性双手翻开不锈钢锅盖，大量蒸汽从锅中升起，露出金黄色炒蛋，好奇表情，暖色调厨房灯光</div>
+          <div class="prompt-text warning" style="font-size:12px; color:#92400e; background:#fef3c7; border-left-color:#faad14;">
+            图生：女性翻开锅盖蒸汽升起，近景微推，好奇表情，暖色调灯光
+          </div>
+          <button class="prompt-copy">&#128203; 复制</button>
+        </div>
+
+        <div class="prompt-item">
+          <div class="prompt-header">
+            <div class="prompt-label">分镜 #3 — 9-18s | 释然</div>
+            <div class="prompt-scene">美食类</div>
+          </div>
+          <div class="prompt-text">亚洲女性微笑展示盘中成品炒蛋，桌面精致摆盘，背景暖色调厨房，中景切换至特写</div>
+          <div class="prompt-text warning" style="font-size:12px; color:#92400e; background:#fef3c7; border-left-color:#faad14;">
+            图生：女性微笑展示成品，中景至特写切换，释然表情，暖色调厨房
+          </div>
+          <button class="prompt-copy">&#128203; 复制</button>
+        </div>
+
+        <div class="prompt-item">
+          <div class="prompt-header">
+            <div class="prompt-label">分镜 #4 — 18-27s | 行动欲</div>
+            <div class="prompt-scene">美食类</div>
+          </div>
+          <div class="prompt-text">盘中金黄色炒蛋端上餐桌，家人伸手夹菜露出满足表情，全景至近景，暖色调餐厅灯光</div>
+          <div class="prompt-text warning" style="font-size:12px; color:#92400e; background:#fef3c7; border-left-color:#faad14;">
+            图生：成品端上桌家人夹菜，全景至近景，满足表情，暖色调餐厅
+          </div>
+          <button class="prompt-copy">&#128203; 复制</button>
+        </div>
+
+        <!-- 校验提示 -->
+        <div class="validation-list">
+          <div class="panel-title" style="font-size:14px;">提示词校验</div>
+          <div class="validation-item"><span class="validation-icon pass">&#10003;</span><span class="validation-text">所有提示词包含明确主体描述</span></div>
+          <div class="validation-item"><span class="validation-icon pass">&#10003;</span><span class="validation-text">无抽象描述、无古诗词</span></div>
+          <div class="validation-item"><span class="validation-icon pass">&#10003;</span><span class="validation-text">每段对应3秒片段，动作精简</span></div>
+          <div class="validation-item"><span class="validation-icon warn">&#9888;</span><span class="validation-text">分镜#3含2次焦点转移（建议减至1次）</span></div>
+          <div class="validation-item"><span class="validation-icon pass">&#10003;</span><span class="validation-text">跨分镜风格一致（人种/色调/光影统一）</span></div>
+        </div>
+
+        <div class="export-bar">
+          <button class="export-btn primary">&#128203; 一键复制全部提示词</button>
+          <button class="export-btn secondary">&#128190; 导出Markdown</button>
+          <button class="export-btn secondary">&#128190; 导出JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 模板库页面 ===== -->
+<div id="page-template" class="page">
+  <div class="template-page">
+    <div class="template-grid">
+      <div class="template-card">
+        <div class="template-type">口播类</div>
+        <div class="template-name">口播人物+背景</div>
+        <div class="template-desc">人物外观+手势动作+表情变化+背景场景，适合口播/讲解类视频</div>
+        <div class="template-preview">一位{外观}的{人种}{性别}坐在{背景}，{手势动作}，{表情}，{光影}</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-type">美食类</div>
+        <div class="template-name">美食烹饪过程</div>
+        <div class="template-desc">食材外观+烹饪动作+翻拌细节+烟火光影，适合美食教程/展示</div>
+        <div class="template-preview">{食材外观}在{厨具}中{烹饪动作}，{烟火光影}，暖色调侧光</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-type">电商类</div>
+        <div class="template-name">产品展示+使用</div>
+        <div class="template-desc">主体+产品外观+使用动作+光影质感，适合产品展示/带货视频</div>
+        <div class="template-preview">一位{外观}的{人种}{性别}{使用动作}{产品}，{光影质感}，{色调}</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-type">短剧类</div>
+        <div class="template-name">人物对话+情绪</div>
+        <div class="template-desc">人物外观+表情动作+对话场景+情绪转折+景别变化</div>
+        <div class="template-preview">{人物外观}在{场景}中{表情动作}，{情绪转折}，{景别变化}</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-type">仙侠类</div>
+        <div class="template-name">仙侠特效+场景</div>
+        <div class="template-desc">服饰细节+法术动作+环境特效+冷色调风格</div>
+        <div class="template-preview">一位穿{服饰}的{角色}在{环境}中{法术动作}，{特效}，冷色调逆光</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-type">通用</div>
+        <div class="template-name">基础公式模板</div>
+        <div class="template-desc">即梦基础公式：主体+外观+运动，适合简单场景</div>
+        <div class="template-preview">【{主体}】+【{外观描述}】+【{运动}】，【{风格词}】</div>
+        <div class="template-actions">
+          <button class="template-use">套用</button>
+          <button class="template-save">&#9734; 收藏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 历史记录页面 ===== -->
+<div id="page-history" class="page">
+  <div class="history-page">
+    <div class="history-search">
+      <input placeholder="搜索拆解记录...">
+      <select>
+        <option>全部类型</option>
+        <option>美食类</option>
+        <option>口播类</option>
+        <option>电商类</option>
+        <option>短剧类</option>
+      </select>
+    </div>
+    <div class="history-list">
+      <div class="history-item">
+        <div class="history-item-header">
+          <div class="history-item-title">美食教程-你还在这样炒菜吗</div>
+          <div class="history-item-date">2026-05-27 14:30</div>
+        </div>
+        <div class="history-item-meta">5个分镜 | 3个钩子 | 美食类策略</div>
+        <div class="history-item-tags">
+          <span class="history-item-tag">美食类</span>
+          <span class="history-item-tag">文生+图生</span>
+          <span class="history-item-tag">已导出</span>
+        </div>
+      </div>
+      <div class="history-item">
+        <div class="history-item-header">
+          <div class="history-item-title">健身教练-30天腹肌挑战</div>
+          <div class="history-item-date">2026-05-26 09:15</div>
+        </div>
+        <div class="history-item-meta">4个分镜 | 2个钩子 | 口播类策略</div>
+        <div class="history-item-tags">
+          <span class="history-item-tag">口播类</span>
+          <span class="history-item-tag">文生</span>
+        </div>
+      </div>
+      <div class="history-item">
+        <div class="history-item-header">
+          <div class="history-item-title">美妆博主-夏日防晒测评</div>
+          <div class="history-item-date">2026-05-25 16:45</div>
+        </div>
+        <div class="history-item-meta">6个分镜 | 4个钩子 | 电商类策略</div>
+        <div class="history-item-tags">
+          <span class="history-item-tag">电商类</span>
+          <span class="history-item-tag">文生+图生</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.includes(page === 'workspace' ? '工作台' : page === 'template' ? '模板库' : '历史记录')) {
+      t.classList.add('active');
+    }
+  });
+}
+
+function simulateUpload() {
+  document.getElementById('uploadArea').style.display = 'none';
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('progressBar').classList.add('show');
+}
+
+function resetUpload() {
+  document.getElementById('uploadArea').style.display = 'block';
+  document.getElementById('fileInfo').classList.remove('show');
+  document.getElementById('progressBar').classList.remove('show');
+}
+
+// 拖拽效果
+const uploadArea = document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragging'); });
+uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragging'); });
+uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragging'); simulateUpload(); });
+</script>
+</body>
+</html>

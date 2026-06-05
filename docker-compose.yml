@@ -1,0 +1,19 @@
+services:
+  scriptx:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - AI_API_BASE_URL=${AI_API_BASE_URL}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_MODEL=${AI_MODEL}
+      - FFMPEG_PATH=ffmpeg
+      - FFPROBE_PATH=ffprobe
+    volumes:
+      - scriptx-data:/app/data
+      - scriptx-uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  scriptx-data:
+  scriptx-uploads:
