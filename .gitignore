@@ -38,6 +38,7 @@ yarn-error.log*
 # runtime data
 data/
 uploads/
+tools/
 
 # vercel
 .vercel
